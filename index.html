@@ -6,9 +6,6 @@
     <title>写真台帳作成ツール</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- 日本語フォントを追加 -->
-    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.12.313/build/pdf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.12.313/build/pdf.worker.min.js"></script>
     <style>
         @media print {
             .photo-item {
@@ -18,95 +15,236 @@
     </style>
 </head>
 <body class="bg-gray-100 p-4">
-    <!-- 前回と同じ body 部分 -->
     <div class="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
-        <!-- 以前と同じコンテンツ部分 -->
+        <h1 class="text-2xl font-bold mb-6">写真台帳作成ツール</h1>
+        
+        <!-- 写真アップロード部分 -->
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center mb-6">
+            <input type="file" accept="image/*" multiple id="photo-upload" class="hidden" onchange="handleImageUpload(event)">
+            <label for="photo-upload" class="cursor-pointer">
+                <div class="flex flex-col items-center">
+                    <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    <p class="mt-2 text-sm text-gray-500">クリックまたはドラッグ&ドロップで写真をアップロード</p>
+                    <p class="text-xs text-gray-400">自動的に適切なサイズにリサイズされます</p>
+                </div>
+            </label>
+        </div>
+
+        <!-- 写真とフォームのグリッド -->
+        <div id="photos-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+
+        <!-- エクスポートボタン -->
+        <div class="mt-6 space-y-4">
+            <button onclick="generatePDF()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                写真台帳をPDFでエクスポート
+            </button>
+        </div>
     </div>
 
     <script>
-        // jsPDFの設定を変更
         const { jsPDF } = window.jspdf;
+        let photos = [];
+        const equipmentOptions = ["自動火災報知設備", "消火器", "避難器具", "誘導灯", "非常放送設備", "スプリンクラー"];
+        const statusOptions = ["施工前", "施工後", "不良箇所", "是正完了", "点検中", "交換前", "交換後"];
 
-        // 日本語フォントの設定
-        const loadJapaneseFont = async () => {
-            const font = await fetch('https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-jp@4.5.12/files/noto-sans-jp-all-400-normal.woff')
-                .then(response => response.arrayBuffer());
-            return font;
-        };
+        function handleImageUpload(event) {
+            const files = Array.from(event.target.files);
+            
+            files.forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    resizeImage(file, 800, 600).then(resizedFile => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            photos.push({
+                                url: e.target.result,
+                                equipment: '',
+                                location: '',
+                                status: '',
+                                description: ''
+                            });
+                            updatePhotosGrid();
+                        };
+                        reader.readAsDataURL(resizedFile);
+                    });
+                }
+            });
+        }
 
-        // PDF生成関数を更新
-        async function generatePDF() {
+        function resizeImage(file, maxWidth, maxHeight) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height *= maxWidth / width;
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width *= maxHeight / height;
+                                height = maxHeight;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        canvas.toBlob((blob) => {
+                            resolve(new File([blob], file.name, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            }));
+                        }, 'image/jpeg', 0.7);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function updatePhotosGrid() {
+            const grid = document.getElementById('photos-grid');
+            grid.innerHTML = '';
+
+            photos.forEach((photo, index) => {
+                const photoDiv = document.createElement('div');
+                photoDiv.className = 'space-y-2';
+                photoDiv.innerHTML = `
+                    <img src="${photo.url}" alt="写真 ${index + 1}" class="w-full h-48 object-cover rounded">
+                    <select onchange="updatePhotoInfo(${index}, 'equipment', this.value)" class="w-full p-2 border rounded">
+                        <option value="">設備を選択</option>
+                        ${equipmentOptions.map(opt => `
+                            <option value="${opt}" ${photo.equipment === opt ? 'selected' : ''}>${opt}</option>
+                        `).join('')}
+                    </select>
+                    <input 
+                        type="text" 
+                        placeholder="場所（例：3階 301号室）"
+                        value="${photo.location}"
+                        onchange="updatePhotoInfo(${index}, 'location', this.value)"
+                        class="w-full p-2 border rounded"
+                    >
+                    <select onchange="updatePhotoInfo(${index}, 'status', this.value)" class="w-full p-2 border rounded">
+                        <option value="">状態を選択</option>
+                        ${statusOptions.map(opt => `
+                            <option value="${opt}" ${photo.status === opt ? 'selected' : ''}>${opt}</option>
+                        `).join('')}
+                    </select>
+                    <input 
+                        type="text" 
+                        placeholder="補足説明"
+                        value="${photo.description}"
+                        onchange="updatePhotoInfo(${index}, 'description', this.value)"
+                        class="w-full p-2 border rounded"
+                    >
+                    <button onclick="removePhoto(${index})" class="w-full bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded">
+                        削除
+                    </button>
+                `;
+                grid.appendChild(photoDiv);
+            });
+        }
+
+        function updatePhotoInfo(index, field, value) {
+            photos[index][field] = value;
+        }
+
+        function removePhoto(index) {
+            photos.splice(index, 1);
+            updatePhotosGrid();
+        }
+
+        function generatePDF() {
             if (photos.length === 0) {
                 alert('写真をアップロードしてください。');
                 return;
             }
 
-            try {
-                const doc = new jsPDF('p', 'mm', 'a4');
-                const pageWidth = doc.internal.pageSize.getWidth();
-                const pageHeight = doc.internal.pageSize.getHeight();
-                const margin = 10;
-                const imageWidth = (pageWidth - (margin * 3)) / 2;
-                const imageHeight = (pageHeight - (margin * 4)) / 3;
-                const photosPerPage = 6;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 10;
+            const contentWidth = pageWidth - (margin * 2);
+            const photoWidth = (contentWidth - margin) / 2;
+            const photoHeight = (pageHeight - (margin * 4)) / 3;
+            const photosPerPage = 6;
 
-                // フォントの設定
-                doc.addFileToVFS('NotoSansJP-Regular.ttf', await loadJapaneseFont());
-                doc.addFont('NotoSansJP-Regular.ttf', 'NotoSansJP', 'normal');
-                doc.setFont('NotoSansJP');
+            for (let i = 0; i < photos.length; i++) {
+                if (i > 0 && i % photosPerPage === 0) {
+                    doc.addPage();
+                }
 
-                for (let i = 0; i < photos.length; i++) {
-                    if (i > 0 && i % photosPerPage === 0) {
-                        doc.addPage();
-                    }
+                const pageIndex = i % photosPerPage;
+                const col = pageIndex % 2;
+                const row = Math.floor(pageIndex / 2);
 
-                    const pageIndex = i % photosPerPage;
-                    const col = pageIndex % 2;
-                    const row = Math.floor(pageIndex / 2);
+                const x = margin + (col * (photoWidth + margin));
+                const y = margin + (row * (photoHeight + 5));
 
-                    const x = margin + (col * (imageWidth + margin));
-                    const y = margin + (row * (imageHeight + margin));
-
+                try {
                     // 画像の追加
                     doc.addImage(
                         photos[i].url,
                         'JPEG',
                         x,
                         y,
-                        imageWidth,
-                        imageHeight - 20
+                        photoWidth,
+                        photoHeight - 20,
+                        null,
+                        'FAST'
                     );
 
-                    // テキスト情報の追加（日本語対応）
-                    doc.setFontSize(8);
-                    const textY = y + imageHeight - 18;
-                    doc.text(`設備: ${photos[i].equipment || '-'}`, x, textY);
-                    doc.text(`場所: ${photos[i].location || '-'}`, x, textY + 4);
-                    doc.text(`状態: ${photos[i].status || '-'}`, x, textY + 8);
-                    doc.text(`説明: ${photos[i].description || '-'}`, x, textY + 12);
-
-                    // ページ番号を追加
-                    const pageNum = Math.floor(i / photosPerPage) + 1;
-                    const totalPages = Math.ceil(photos.length / photosPerPage);
-                    doc.setFontSize(8);
-                    doc.text(
-                        `${pageNum} / ${totalPages}`,
-                        pageWidth - margin - 15,
-                        pageHeight - margin
-                    );
+                    // テキスト情報の追加
+                    doc.setFontSize(7);
+                    const textY = y + photoHeight - 18;
+                    
+                    // ASCII文字のみを使用して情報を表示
+                    doc.text(`Equipment: ${ascii(photos[i].equipment || '-')}`, x, textY);
+                    doc.text(`Location: ${ascii(photos[i].location || '-')}`, x, textY + 4);
+                    doc.text(`Status: ${ascii(photos[i].status || '-')}`, x, textY + 8);
+                    doc.text(`Note: ${ascii(photos[i].description || '-')}`, x, textY + 12);
+                } catch (error) {
+                    console.error('Error adding image:', error);
                 }
+            }
 
-                // PDFを保存
-                doc.save(`写真台帳_${new Date().toISOString().slice(0,10)}.pdf`);
-
+            try {
+                doc.save(`photo-report_${new Date().toISOString().slice(0,10)}.pdf`);
             } catch (error) {
-                console.error('PDF生成エラー:', error);
+                console.error('Error saving PDF:', error);
                 alert('PDFの生成中にエラーが発生しました。');
             }
         }
 
-        // 他の関数は前回と同じ
-        // handleImageUpload, resizeImage, updatePhotosGrid, updatePhotoInfo, removePhoto
+        // ASCII文字に変換する関数
+        function ascii(str) {
+            return str.replace(/[^\x00-\x7F]/g, function(char) {
+                switch(char) {
+                    case '設': return 'Equipment';
+                    case '備': return '';
+                    case '場': return 'Place';
+                    case '所': return '';
+                    case '状': return 'Status';
+                    case '態': return '';
+                    case '説': return 'Note';
+                    case '明': return '';
+                    default: return '';
+                }
+            });
+        }
     </script>
 </body>
 </html>
