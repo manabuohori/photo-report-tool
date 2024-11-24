@@ -5,7 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>写真台帳作成ツール</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @media print {
+            .photo-item {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-100 p-4">
     <div class="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
@@ -29,13 +36,18 @@
         <div id="photos-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
 
         <!-- エクスポートボタン -->
-        <button onclick="exportToExcel()" class="mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-            </svg>
-            台帳をエクスポート
-        </button>
+        <div class="mt-6 space-y-4">
+            <button onclick="exportToPDF()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                写真台帳をPDFでエクスポート
+            </button>
+        </div>
     </div>
+
+    <!-- プレビュー用の非表示div -->
+    <div id="pdf-content" style="display: none;"></div>
 
     <script>
         let photos = [];
@@ -140,6 +152,9 @@
                         onchange="updatePhotoInfo(${index}, 'description', this.value)"
                         class="w-full p-2 border rounded"
                     >
+                    <button onclick="removePhoto(${index})" class="w-full bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded">
+                        削除
+                    </button>
                 `;
                 grid.appendChild(photoDiv);
             });
@@ -149,18 +164,59 @@
             photos[index][field] = value;
         }
 
-        function exportToExcel() {
-            const worksheet = XLSX.utils.json_to_sheet(photos.map(photo => ({
-                設備: photo.equipment,
-                場所: photo.location,
-                状態: photo.status,
-                説明: photo.description
-            })));
+        function removePhoto(index) {
+            photos.splice(index, 1);
+            updatePhotosGrid();
+        }
 
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "写真台帳");
+        async function exportToPDF() {
+            const content = document.getElementById('pdf-content');
+            content.innerHTML = `
+                <div style="padding: 20px;">
+                    <h1 style="text-align: center; margin-bottom: 20px;">写真台帳</h1>
+                    <div style="display: flex; flex-wrap: wrap;">
+                        ${photos.map((photo, index) => `
+                            <div style="width: 100%; margin-bottom: 20px; page-break-inside: avoid;">
+                                <img src="${photo.url}" style="max-width: 100%; max-height: 300px; object-fit: contain;">
+                                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                                    <tr>
+                                        <th style="border: 1px solid black; padding: 5px; width: 20%; background-color: #f0f0f0;">設備</th>
+                                        <td style="border: 1px solid black; padding: 5px;">${photo.equipment || '-'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th style="border: 1px solid black; padding: 5px; background-color: #f0f0f0;">場所</th>
+                                        <td style="border: 1px solid black; padding: 5px;">${photo.location || '-'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th style="border: 1px solid black; padding: 5px; background-color: #f0f0f0;">状態</th>
+                                        <td style="border: 1px solid black; padding: 5px;">${photo.status || '-'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th style="border: 1px solid black; padding: 5px; background-color: #f0f0f0;">説明</th>
+                                        <td style="border: 1px solid black; padding: 5px;">${photo.description || '-'}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
 
-            XLSX.writeFile(workbook, `写真台帳_${new Date().toISOString().slice(0,10)}.xlsx`);
+            const opt = {
+                margin: 10,
+                filename: `写真台帳_${new Date().toISOString().slice(0,10)}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            try {
+                const pdf = await html2pdf().set(opt).from(content).save();
+                content.innerHTML = '';
+            } catch (error) {
+                console.error('PDF作成エラー:', error);
+                alert('PDFの作成中にエラーが発生しました。');
+            }
         }
     </script>
 </body>
