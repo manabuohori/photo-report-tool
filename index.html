@@ -5,8 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>写真台帳作成ツール</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        @media print {
+            .photo-item {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-100 p-4">
     <div class="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
@@ -31,18 +37,13 @@
 
         <!-- エクスポートボタン -->
         <div class="mt-6 space-y-4">
-            <button onclick="exportToPDF()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center">
+            <button onclick="generatePDF()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                 </svg>
                 写真台帳をPDFでエクスポート
             </button>
         </div>
-    </div>
-
-    <!-- PDF生成用の非表示エリア -->
-    <div id="pdf-content" style="display: none;">
-        <div id="pdf-pages"></div>
     </div>
 
     <script>
@@ -166,71 +167,52 @@
             updatePhotosGrid();
         }
 
-        async function createPDFContent() {
-            const pdfContent = document.getElementById('pdf-pages');
-            pdfContent.innerHTML = '';
-
-            // 6枚ごとにページを作成
-            for (let i = 0; i < photos.length; i += 6) {
-                const page = document.createElement('div');
-                page.className = 'pdf-page';
-                page.style.width = '210mm';
-                page.style.height = '297mm';
-                page.style.padding = '10mm';
-                page.style.display = 'grid';
-                page.style.gridTemplateColumns = 'repeat(2, 1fr)';
-                page.style.gridGap = '10mm';
-                page.style.backgroundColor = 'white';
-
-                // ページ内の6枚の写真を処理
-                for (let j = 0; j < 6 && (i + j) < photos.length; j++) {
-                    const photo = photos[i + j];
-                    const photoContainer = document.createElement('div');
-                    photoContainer.style.breakInside = 'avoid';
-                    photoContainer.innerHTML = `
-                        <div style="margin-bottom: 5mm;">
-                            <img src="${photo.url}" style="width: 100%; height: 80mm; object-fit: contain;">
-                            <div style="font-size: 10pt; margin-top: 2mm;">
-                                <p>設備: ${photo.equipment || '-'}</p>
-                                <p>場所: ${photo.location || '-'}</p>
-                                <p>状態: ${photo.status || '-'}</p>
-                                <p>説明: ${photo.description || '-'}</p>
-                            </div>
-                        </div>
-                    `;
-                    page.appendChild(photoContainer);
-                }
-
-                pdfContent.appendChild(page);
+        function generatePDF() {
+            if (photos.length === 0) {
+                alert('写真をアップロードしてください。');
+                return;
             }
-            return pdfContent;
-        }
 
-        async function exportToPDF() {
-            const content = await createPDFContent();
             const doc = new jsPDF('p', 'mm', 'a4');
-            let currentPage = 1;
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 10;
+            const imageWidth = (pageWidth - (margin * 3)) / 2;
+            const imageHeight = (pageHeight - (margin * 4)) / 3;
+            const photosPerPage = 6;
 
-            // 各ページを処理
-            const pages = content.getElementsByClassName('pdf-page');
-            for (let page of pages) {
-                const canvas = await html2canvas(page, {
-                    scale: 2,
-                    useCORS: true,
-                    logging: false
-                });
-
-                // PNG形式で圧縮
-                const imgData = canvas.toDataURL('image/png', 0.7);
-                
-                if (currentPage > 1) {
+            for (let i = 0; i < photos.length; i++) {
+                if (i > 0 && i % photosPerPage === 0) {
                     doc.addPage();
                 }
 
-                doc.addImage(imgData, 'PNG', 0, 0, 210, 297);
-                currentPage++;
+                const pageIndex = i % photosPerPage;
+                const col = pageIndex % 2;
+                const row = Math.floor(pageIndex / 2);
+
+                const x = margin + (col * (imageWidth + margin));
+                const y = margin + (row * (imageHeight + margin));
+
+                // 画像の追加
+                doc.addImage(
+                    photos[i].url,
+                    'JPEG',
+                    x,
+                    y,
+                    imageWidth,
+                    imageHeight - 20
+                );
+
+                // テキスト情報の追加
+                doc.setFontSize(8);
+                const textY = y + imageHeight - 18;
+                doc.text(`設備: ${photos[i].equipment || '-'}`, x, textY);
+                doc.text(`場所: ${photos[i].location || '-'}`, x, textY + 4);
+                doc.text(`状態: ${photos[i].status || '-'}`, x, textY + 8);
+                doc.text(`説明: ${photos[i].description || '-'}`, x, textY + 12);
             }
 
+            // PDFを保存
             doc.save(`写真台帳_${new Date().toISOString().slice(0,10)}.pdf`);
         }
     </script>
