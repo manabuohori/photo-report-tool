@@ -173,6 +173,27 @@ function generatePDF() {
         return;
     }
 
+    // ロマジ変換用の辞書
+    const japaneseToRomaji = {
+        '自動火災報知設備': 'Jido Kasai Hochi Setsubi',
+        '消火器': 'Shoukaki',
+        '避難器具': 'Hinan Kigu',
+        '誘導灯': 'Yudoto',
+        '非常放送設備': 'Hijou Housou Setsubi',
+        '施工前': 'Before Construction',
+        '施工後': 'After Construction',
+        '不良箇所': 'Defective Part',
+        '是正完了': 'Correction Completed',
+        '点検中': 'Under Inspection',
+        '交換前': 'Before Replacement',
+        '交換後': 'After Replacement'
+    };
+
+    // 文字列をロマジに変換する関数
+    function toRomaji(text) {
+        return japaneseToRomaji[text] || text;
+    }
+
     const doc = new jsPDF('p', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -207,15 +228,24 @@ function generatePDF() {
                 'FAST'
             );
 
-            // テキスト情報の追加
+            // テキスト情報の追加（ロマジ変換）
             doc.setFontSize(7);
             const textY = y + photoHeight - 18;
             
-            // 英語表記のまま（日本語フォント実装までの暫定対応）
-            doc.text(`Equipment: ${photos[i].equipment || '-'}`, x, textY);
+            doc.text(`Equipment: ${toRomaji(photos[i].equipment) || '-'}`, x, textY);
             doc.text(`Location: ${photos[i].location || '-'}`, x, textY + 4);
-            doc.text(`Status: ${photos[i].status || '-'}`, x, textY + 8);
+            doc.text(`Status: ${toRomaji(photos[i].status) || '-'}`, x, textY + 8);
             doc.text(`Note: ${photos[i].description || '-'}`, x, textY + 12);
+
+            // ページ番号
+            const pageNum = Math.floor(i / photosPerPage) + 1;
+            const totalPages = Math.ceil(photos.length / photosPerPage);
+            doc.setFontSize(8);
+            doc.text(
+                `${pageNum} / ${totalPages}`,
+                pageWidth - margin - 15,
+                pageHeight - margin
+            );
 
         } catch (error) {
             console.error('Error adding image:', error);
