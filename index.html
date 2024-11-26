@@ -175,29 +175,53 @@ function generatePDF() {
 
     // ロマジ変換用の辞書
     const japaneseToRomaji = {
+        // 設備の種類
         '自動火災報知設備': 'Jido Kasai Hochi Setsubi',
         '消火器': 'Shoukaki',
         '避難器具': 'Hinan Kigu',
         '誘導灯': 'Yudoto',
         '非常放送設備': 'Hijou Housou Setsubi',
+        // 状態
         '施工前': 'Before Construction',
         '施工後': 'After Construction',
         '不良箇所': 'Defective Part',
         '是正完了': 'Correction Completed',
         '点検中': 'Under Inspection',
         '交換前': 'Before Replacement',
-        '交換後': 'After Replacement'
+        '交換後': 'After Replacement',
+        // よく使う場所の表記
+        '階': 'Floor',
+        '号室': 'Room',
+        '共用部': 'Common Area',
+        '廊下': 'Hallway',
+        '天井': 'Ceiling',
+        '壁': 'Wall',
+        '扉': 'Door'
     };
 
-    // 文字列をロマジに変換する関数
+    // 文字列をロマジに変換する関数（改良版）
     function toRomaji(text) {
-        return japaneseToRomaji[text] || text;
+        if (!text) return '-';
+        
+        // 数字とアルファベットはそのまま返す
+        if (/^[0-9a-zA-Z\s-]+$/.test(text)) return text;
+
+        // 辞書に完全一致する場合
+        if (japaneseToRomaji[text]) return japaneseToRomaji[text];
+
+        // 部分一致の変換（例：「3階」→「3 Floor」）
+        Object.keys(japaneseToRomaji).forEach(key => {
+            text = text.replace(key, japaneseToRomaji[key]);
+        });
+
+        // 変換できない文字は「*」に置換
+        return text.replace(/[^\x00-\x7F]/g, '*');
     }
 
     const doc = new jsPDF('p', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;  // 余白を15mmに変更
+    const margin = 15;
     const contentWidth = pageWidth - (margin * 2);
     const photoWidth = (contentWidth - margin) / 2;
     const photoHeight = (pageHeight - (margin * 4)) / 3;
@@ -228,14 +252,14 @@ function generatePDF() {
                 'FAST'
             );
 
-            // テキスト情報の追加（ロマジ変換）
+            // テキスト情報の追加（改良版変換）
             doc.setFontSize(7);
             const textY = y + photoHeight - 18;
             
-            doc.text(`Equipment: ${toRomaji(photos[i].equipment) || '-'}`, x, textY);
-            doc.text(`Location: ${photos[i].location || '-'}`, x, textY + 4);
-            doc.text(`Status: ${toRomaji(photos[i].status) || '-'}`, x, textY + 8);
-            doc.text(`Note: ${photos[i].description || '-'}`, x, textY + 12);
+            doc.text(`Equipment: ${toRomaji(photos[i].equipment)}`, x, textY);
+            doc.text(`Location: ${toRomaji(photos[i].location)}`, x, textY + 4);
+            doc.text(`Status: ${toRomaji(photos[i].status)}`, x, textY + 8);
+            doc.text(`Note: ${toRomaji(photos[i].description)}`, x, textY + 12);
 
             // ページ番号
             const pageNum = Math.floor(i / photosPerPage) + 1;
@@ -252,6 +276,13 @@ function generatePDF() {
         }
     }
 
+    try {
+        doc.save(`photo-report_${new Date().toISOString().slice(0,10)}.pdf`);
+    } catch (error) {
+        console.error('Error saving PDF:', error);
+        alert('PDFの生成中にエラーが発生しました。');
+    }
+}
     try {
         doc.save(`photo-report_${new Date().toISOString().slice(0,10)}.pdf`);
     } catch (error) {
