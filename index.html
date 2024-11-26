@@ -224,25 +224,22 @@
                 'FAST'
             );
 
-         // PDFでのテキスト表示部分を修正
+        // PDFでのテキスト表示部分を修正
 doc.setFontSize(7);
 const textY = y + photoHeight - 18;
-
 // 設備名（変換辞書を使用）
-doc.text(`Equipment: ${translate[photos[i].equipment] || '-'}`, x, textY);
-
-// 場所（数字とアルファベットのみ残す）
+doc.text(Equipment: ${translate[photos[i].equipment] || '-'}, x, textY);
+// 場所（階数-号室の形式）
 let location = photos[i].location || '-';
-location = location.replace(/[^A-Za-z0-9]/g, '');
-doc.text(`Location: ${location}`, x, textY + 4);
-
+location = location.replace(/[^0-9]+/g, '-');
+location = location.replace(/^([0-9]+)-/, '$1F-');
+doc.text(Location: ${location}, x, textY + 4);
 // 状態（変換辞書を使用）
-doc.text(`Status: ${translate[photos[i].status] || '-'}`, x, textY + 8);
-
-// 補足説明（数字とアルファベットのみ残す）
+doc.text(Status: ${translate[photos[i].status] || '-'}, x, textY + 8);
+// 備考欄（英数字のみ残す）
 let description = photos[i].description || '-';
-description = description.replace(/[^A-Za-z0-9]/g, '');
-doc.text(`Note: ${description}`, x, textY + 12);
+description = description.replace(/[^A-Za-z0-9,.-# ]/g, '');
+doc.text(Note: ${description}, x, textY + 12);
 
             // ページ番号
             const pageNum = Math.floor(i / photosPerPage) + 1;
