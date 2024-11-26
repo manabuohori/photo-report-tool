@@ -224,25 +224,25 @@
                 'FAST'
             );
 
-           // テキスト情報の追加部分を修正
+         // PDFでのテキスト表示部分を修正
 doc.setFontSize(7);
 const textY = y + photoHeight - 18;
 
-// 設備名はローマ字変換
-doc.text(`Equipment: ${translate[photos[i].equipment] || photos[i].equipment || '-'}`, x, textY);
+// 設備名（変換辞書を使用）
+doc.text(`Equipment: ${translate[photos[i].equipment] || '-'}`, x, textY);
 
-// 場所は全角を半角に変換
+// 場所（数字とアルファベットのみ残す）
 let location = photos[i].location || '-';
-location = location.replace(/[０-９]/g, function(s) {
-    return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-});
+location = location.replace(/[^A-Za-z0-9]/g, '');
 doc.text(`Location: ${location}`, x, textY + 4);
 
-// 状態は英語に変換
-doc.text(`Status: ${translate[photos[i].status] || photos[i].status || '-'}`, x, textY + 8);
+// 状態（変換辞書を使用）
+doc.text(`Status: ${translate[photos[i].status] || '-'}`, x, textY + 8);
 
-// 補足説明をそのまま表示
-doc.text(`Note: ${photos[i].description || '-'}`, x, textY + 12);
+// 補足説明（数字とアルファベットのみ残す）
+let description = photos[i].description || '-';
+description = description.replace(/[^A-Za-z0-9]/g, '');
+doc.text(`Note: ${description}`, x, textY + 12);
 
             // ページ番号
             const pageNum = Math.floor(i / photosPerPage) + 1;
