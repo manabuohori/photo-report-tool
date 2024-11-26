@@ -6,6 +6,7 @@
     <title>写真台帳作成ツール</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @media print {
             .photo-item {
@@ -167,144 +168,121 @@
             updatePhotosGrid();
         }
 
-function generatePDF() {
-    if (photos.length === 0) {
-        alert('写真をアップロードしてください。');
-        return;
-    }
+        function generatePDF() {
+            if (photos.length === 0) {
+                alert('写真をアップロードしてください。');
+                return;
+            }
 
-    // ロマジ変換用の辞書
-    const japaneseToRomaji = {
-        // 設備の種類
-        '自動火災報知設備': 'Jido Kasai Hochi Setsubi',
-        '消火器': 'Shoukaki',
-        '避難器具': 'Hinan Kigu',
-        '誘導灯': 'Yudoto',
-        '非常放送設備': 'Hijou Housou Setsubi',
-        // 状態
-        '施工前': 'Before Construction',
-        '施工後': 'After Construction',
-        '不良箇所': 'Defective Part',
-        '是正完了': 'Correction Completed',
-        '点検中': 'Under Inspection',
-        '交換前': 'Before Replacement',
-        '交換後': 'After Replacement',
-        // よく使う場所の表記
-        '階': 'Floor',
-        '号室': 'Room',
-        '共用部': 'Common Area',
-        '廊下': 'Hallway',
-        '天井': 'Ceiling',
-        '壁': 'Wall',
-        '扉': 'Door'
-    };
+            // ロマジ変換用の辞書
+            const japaneseToRomaji = {
+                // 設備の種類
+                '自動火災報知設備': 'Jido Kasai Hochi Setsubi',
+                '消火器': 'Shoukaki',
+                '避難器具': 'Hinan Kigu',
+                '誘導灯': 'Yudoto',
+                '非常放送設備': 'Hijou Housou Setsubi',
+                // 状態
+                '施工前': 'Before Construction',
+                '施工後': 'After Construction',
+                '不良箇所': 'Defective Part',
+                '是正完了': 'Correction Completed',
+                '点検中': 'Under Inspection',
+                '交換前': 'Before Replacement',
+                '交換後': 'After Replacement',
+                // よく使う場所の表記
+                '階': 'Floor',
+                '号室': 'Room',
+                '共用部': 'Common Area',
+                '廊下': 'Hallway',
+                '天井': 'Ceiling',
+                '壁': 'Wall',
+                '扉': 'Door'
+            };
 
-    // 文字列をロマジに変換する関数（改良版）
-    function toRomaji(text) {
-        if (!text) return '-';
-        
-        // 数字とアルファベットはそのまま返す
-        if (/^[0-9a-zA-Z\s-]+$/.test(text)) return text;
+            // 文字列をロマジに変換する関数（改良版）
+            function toRomaji(text) {
+                if (!text) return '-';
+                
+                // 数字とアルファベットはそのまま返す
+                if (/^[0-9a-zA-Z\s-]+$/.test(text)) return text;
 
-        // 辞書に完全一致する場合
-        if (japaneseToRomaji[text]) return japaneseToRomaji[text];
+                // 辞書に完全一致する場合
+                if (japaneseToRomaji[text]) return japaneseToRomaji[text];
 
-        // 部分一致の変換（例：「3階」→「3 Floor」）
-        Object.keys(japaneseToRomaji).forEach(key => {
-            text = text.replace(key, japaneseToRomaji[key]);
-        });
+                // 部分一致の変換（例：「3階」→「3 Floor」）
+                Object.keys(japaneseToRomaji).forEach(key => {
+                    text = text.replace(key, japaneseToRomaji[key]);
+                });
 
-        // 変換できない文字は「*」に置換
-        return text.replace(/[^\x00-\x7F]/g, '*');
-    }
+                // 変換できない文字は「*」に置換
+                return text.replace(/[^\x00-\x7F]/g, '*');
+            }
 
-    const doc = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
-    const contentWidth = pageWidth - (margin * 2);
-    const photoWidth = (contentWidth - margin) / 2;
-    const photoHeight = (pageHeight - (margin * 4)) / 3;
-    const photosPerPage = 6;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 15;
+            const contentWidth = pageWidth - (margin * 2);
+            const photoWidth = (contentWidth - margin) / 2;
+            const photoHeight = (pageHeight - (margin * 4)) / 3;
+            const photosPerPage = 6;
 
-    for (let i = 0; i < photos.length; i++) {
-        if (i > 0 && i % photosPerPage === 0) {
-            doc.addPage();
-        }
-
-        const pageIndex = i % photosPerPage;
-        const col = pageIndex % 2;
-        const row = Math.floor(pageIndex / 2);
-
-        const x = margin + (col * (photoWidth + margin));
-        const y = margin + (row * (photoHeight + 5));
-
-        try {
-            // 画像の追加
-            doc.addImage(
-                photos[i].url,
-                'JPEG',
-                x,
-                y,
-                photoWidth,
-                photoHeight - 20,
-                null,
-                'FAST'
-            );
-
-            // テキスト情報の追加（改良版変換）
-            doc.setFontSize(7);
-            const textY = y + photoHeight - 18;
-            
-            doc.text(`Equipment: ${toRomaji(photos[i].equipment)}`, x, textY);
-            doc.text(`Location: ${toRomaji(photos[i].location)}`, x, textY + 4);
-            doc.text(`Status: ${toRomaji(photos[i].status)}`, x, textY + 8);
-            doc.text(`Note: ${toRomaji(photos[i].description)}`, x, textY + 12);
-
-            // ページ番号
-            const pageNum = Math.floor(i / photosPerPage) + 1;
-            const totalPages = Math.ceil(photos.length / photosPerPage);
-            doc.setFontSize(8);
-            doc.text(
-                `${pageNum} / ${totalPages}`,
-                pageWidth - margin - 15,
-                pageHeight - margin
-            );
-
-        } catch (error) {
-            console.error('Error adding image:', error);
-        }
-    }
-
-    try {
-        doc.save(`photo-report_${new Date().toISOString().slice(0,10)}.pdf`);
-    } catch (error) {
-        console.error('Error saving PDF:', error);
-        alert('PDFの生成中にエラーが発生しました。');
-    }
-}
-    try {
-        doc.save(`photo-report_${new Date().toISOString().slice(0,10)}.pdf`);
-    } catch (error) {
-        console.error('Error saving PDF:', error);
-        alert('PDFの生成中にエラーが発生しました。');
-    }
-}
-        // ASCII文字に変換する関数
-        function ascii(str) {
-            return str.replace(/[^\x00-\x7F]/g, function(char) {
-                switch(char) {
-                    case '設': return 'Equipment';
-                    case '備': return '';
-                    case '場': return 'Place';
-                    case '所': return '';
-                    case '状': return 'Status';
-                    case '態': return '';
-                    case '説': return 'Note';
-                    case '明': return '';
-                    default: return '';
+            for (let i = 0; i < photos.length; i++) {
+                if (i > 0 && i % photosPerPage === 0) {
+                    doc.addPage();
                 }
-            });
+
+                const pageIndex = i % photosPerPage;
+                const col = pageIndex % 2;
+                const row = Math.floor(pageIndex / 2);
+
+                const x = margin + (col * (photoWidth + margin));
+                const y = margin + (row * (photoHeight + 5));
+
+                try {
+                    // 画像の追加
+                    doc.addImage(
+                        photos[i].url,
+                        'JPEG',
+                        x,
+                        y,
+                        photoWidth,
+                        photoHeight - 20,
+                        null,
+                        'FAST'
+                    );
+
+                    // テキスト情報の追加（改良版変換）
+                    doc.setFontSize(7);
+                    const textY = y + photoHeight - 18;
+                    
+                    doc.text(`Equipment: ${toRomaji(photos[i].equipment)}`, x, textY);
+                    doc.text(`Location: ${toRomaji(photos[i].location)}`, x, textY + 4);
+                    doc.text(`Status: ${toRomaji(photos[i].status)}`, x, textY + 8);
+                    doc.text(`Note: ${toRomaji(photos[i].description)}`, x, textY + 12);
+
+                    // ページ番号
+                    const pageNum = Math.floor(i / photosPerPage) + 1;
+                    const totalPages = Math.ceil(photos.length / photosPerPage);
+                    doc.setFontSize(8);
+                    doc.text(
+                        `${pageNum} / ${totalPages}`,
+                        pageWidth - margin - 15,
+                        pageHeight - margin
+                    );
+
+                } catch (error) {
+                    console.error('Error adding image:', error);
+                }
+            }
+
+            try {
+                doc.save(`photo-report_${new Date().toISOString().slice(0,10)}.pdf`);
+            } catch (error) {
+                console.error('Error saving PDF:', error);
+                alert('PDFの生成中にエラーが発生しました。');
+            }
         }
     </script>
 </body>
