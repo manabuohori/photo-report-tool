@@ -15,6 +15,7 @@
             }
         }
     </style>
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body class="bg-gray-100 p-4">
     <div class="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
@@ -169,82 +170,103 @@
             updatePhotosGrid();
         }
 
-        function generatePDF() {
-            if (photos.length === 0) {
-                alert('写真をアップロードしてください。');
-                return;
-            }
+      async function generatePDF() {
+    if (photos.length === 0) {
+        alert('写真をアップロードしてください。');
+        return;
+    }
 
-            const doc = new jsPDF('p', 'mm', 'a4');
-            // 日本語フォントの設定
-            doc.addFont('GenShinGothic-Normal', 'GenShinGothic', 'normal');
-            doc.setFont('GenShinGothic');
+    // PDFの初期設定
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const contentWidth = pageWidth - (margin * 2);
+    const photoWidth = (contentWidth - margin) / 2;
+    const photoHeight = (pageHeight - (margin * 4)) / 3;
+    const photosPerPage = 6;
 
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-            const margin = 15;
-            const contentWidth = pageWidth - (margin * 2);
-            const photoWidth = (contentWidth - margin) / 2;
-            const photoHeight = (pageHeight - (margin * 4)) / 3;
-            const photosPerPage = 6;
+    // テキスト用の一時的なHTML要素を作成
+    const textContainer = document.createElement('div');
+    textContainer.style.width = '400px';  // 十分な幅を確保
+    textContainer.style.fontFamily = 'sans-serif';
+    document.body.appendChild(textContainer);
 
-            for (let i = 0; i < photos.length; i++) {
-                if (i > 0 && i % photosPerPage === 0) {
-                    doc.addPage();
-                }
-
-                const pageIndex = i % photosPerPage;
-                const col = pageIndex % 2;
-                const row = Math.floor(pageIndex / 2);
-
-                const x = margin + (col * (photoWidth + margin));
-                const y = margin + (row * (photoHeight + 5));
-
-                try {
-                    // 画像の追加
-                    doc.addImage(
-                        photos[i].url,
-                        'JPEG',
-                        x,
-                        y,
-                        photoWidth,
-                        photoHeight - 20,
-                        null,
-                        'FAST'
-                    );
-
-                    // テキスト情報の追加
-                    doc.setFontSize(7);
-                    const textY = y + photoHeight - 18;
-                    
-                    // 日本語で出力
-                    doc.text(`設備: ${photos[i].equipment || '-'}`, x, textY);
-                    doc.text(`場所: ${photos[i].location || '-'}`, x, textY + 4);
-                    doc.text(`状態: ${photos[i].status || '-'}`, x, textY + 8);
-                    doc.text(`備考: ${photos[i].description || '-'}`, x, textY + 12);
-
-                    // ページ番号
-                    const pageNum = Math.floor(i / photosPerPage) + 1;
-                    const totalPages = Math.ceil(photos.length / photosPerPage);
-                    doc.setFontSize(8);
-                    doc.text(
-                        `${pageNum} / ${totalPages}`,
-                        pageWidth - margin - 15,
-                        pageHeight - margin
-                    );
-
-                } catch (error) {
-                    console.error('Error adding image:', error);
-                }
-            }
-
-            try {
-                doc.save(`写真台帳_${new Date().toISOString().slice(0,10)}.pdf`);
-            } catch (error) {
-                console.error('Error saving PDF:', error);
-                alert('PDFの生成中にエラーが発生しました。');
-            }
+    for (let i = 0; i < photos.length; i++) {
+        if (i > 0 && i % photosPerPage === 0) {
+            doc.addPage();
         }
-    </script>
-</body>
-</html>
+
+        const pageIndex = i % photosPerPage;
+        const col = pageIndex % 2;
+        const row = Math.floor(pageIndex / 2);
+
+        const x = margin + (col * (photoWidth + margin));
+        const y = margin + (row * (photoHeight + 5));
+
+        try {
+            // 写真を追加
+            doc.addImage(
+                photos[i].url,
+                'JPEG',
+                x,
+                y,
+                photoWidth,
+                photoHeight - 20,
+                null,
+                'FAST'
+            );
+
+            // テキスト情報をHTML要素として作成
+            textContainer.innerHTML = `
+                <div style="font-size: 12px; line-height: 1.4; color: black;">
+                    <div>設備: ${photos[i].equipment || '-'}</div>
+                    <div>場所: ${photos[i].location || '-'}</div>
+                    <div>状態: ${photos[i].status || '-'}</div>
+                    <div>備考: ${photos[i].description || '-'}</div>
+                </div>
+            `;
+
+            // HTML要素を画像に変換
+            const canvas = await html2canvas(textContainer, {
+                scale: 2,
+                logging: false,
+                useCORS: true
+            });
+
+            // 生成した画像をPDFに追加
+            const imgData = canvas.toDataURL('image/png');
+            doc.addImage(
+                imgData,
+                'PNG',
+                x,
+                y + photoHeight - 20,
+                photoWidth,
+                20
+            );
+
+            // ページ番号
+            const pageNum = Math.floor(i / photosPerPage) + 1;
+            const totalPages = Math.ceil(photos.length / photosPerPage);
+            doc.setFontSize(8);
+            doc.text(
+                `${pageNum} / ${totalPages}`,
+                pageWidth - margin - 15,
+                pageHeight - margin
+            );
+
+        } catch (error) {
+            console.error('Error processing image:', error);
+        }
+    }
+
+    // 一時的なHTML要素を削除
+    document.body.removeChild(textContainer);
+
+    try {
+        doc.save(`写真台帳_${new Date().toISOString().slice(0,10)}.pdf`);
+    } catch (error) {
+        console.error('Error saving PDF:', error);
+        alert('PDFの生成中にエラーが発生しました。');
+    }
+}
