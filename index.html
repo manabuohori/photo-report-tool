@@ -6,15 +6,11 @@
     <title>写真台帳作成ツール</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @media print {
             .photo-item {
                 page-break-inside: avoid;
             }
-        }
-        .pdf-text {
-            font-family: "Hiragino Sans", "Meiryo", sans-serif;
         }
     </style>
 </head>
@@ -49,9 +45,6 @@
             </button>
         </div>
     </div>
-
-    <!-- PDF生成用の非表示コンテナ -->
-    <div id="pdf-text-container" class="pdf-text" style="display: none; position: absolute; left: -9999px;"></div>
 
     <script>
         const { jsPDF } = window.jspdf;
@@ -174,11 +167,29 @@
             updatePhotosGrid();
         }
 
-        async function generatePDF() {
+        function generatePDF() {
             if (photos.length === 0) {
                 alert('写真をアップロードしてください。');
                 return;
             }
+
+            // ロマジ変換用の辞書
+            const japaneseToRomaji = {
+                // 設備の種類
+                '自動火災報知設備': 'Jido Kasai Hochi Setsubi',
+                '消火器': 'Shoukaki',
+                '避難器具': 'Hinan Kigu',
+                '誘導灯': 'Yudoto',
+                '非常放送設備': 'Hijou Housou Setsubi',
+                // 状態
+                '施工前': 'Before Construction',
+                '施工後': 'After Construction',
+                '不良箇所': 'Defective Part',
+                '是正完了': 'Correction Completed',
+                '点検中': 'Under Inspection',
+                '交換前': 'Before Replacement',
+                '交換後': 'After Replacement'
+            };
 
             const doc = new jsPDF('p', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.getWidth();
@@ -188,9 +199,6 @@
             const photoWidth = (contentWidth - margin) / 2;
             const photoHeight = (pageHeight - (margin * 4)) / 3;
             const photosPerPage = 6;
-
-            // テキスト用のコンテナを取得
-            const textContainer = document.getElementById('pdf-text-container');
 
             for (let i = 0; i < photos.length; i++) {
                 if (i > 0 && i % photosPerPage === 0) {
@@ -205,7 +213,7 @@
                 const y = margin + (row * (photoHeight + 5));
 
                 try {
-                    // 写真を追加
+                    // 画像の追加
                     doc.addImage(
                         photos[i].url,
                         'JPEG',
@@ -217,36 +225,27 @@
                         'FAST'
                     );
 
-                    // テキスト情報をHTML要素として作成
-                    textContainer.innerHTML = `
-                        <div style="padding: 10px; font-size: 12px; line-height: 1.4; background: white;">
-                            <div>設備：${photos[i].equipment || '-'}</div>
-                            <div>場所：${photos[i].location || '-'}</div>
-                            <div>状態：${photos[i].status || '-'}</div>
-                            <div>備考：${photos[i].description || '-'}</div>
-                        </div>
-                    `;
+                    // テキスト情報の追加
+                    doc.setFontSize(7);
+                    const textY = y + photoHeight - 18;
+                    
+                    // 設備名はローマ字変換
+                    doc.text(`Equipment: ${japaneseToRomaji[photos[i].equipment] || photos[i].equipment || '-'}`, x, textY);
+                    
+                    // 場所は数字のみ抽出
+                    let location = photos[i].location || '-';
+                    location = location.replace(/[^0-9]/g, '');
+                    doc.text(`Location: ${location}`, x, textY + 4);
+                    
+                    // 状態は英語に変換
+                    doc.text(`Status: ${japaneseToRomaji[photos[i].status] || photos[i].status || '-'}`, x, textY + 8);
+                    
+                    // 補足説明は半角英数字のみ
+                    let description = photos[i].description || '-';
+                    description = description.replace(/[^A-Za-z0-9\s\-\.]/g, '');
+                    doc.text(`Note: ${description}`, x, textY + 12);
 
-                    // HTML要素を画像に変換
-                    const canvas = await html2canvas(textContainer, {
-                        scale: 2,
-                        logging: false,
-                        useCORS: true,
-                        backgroundColor: null
-                    });
-
-                    // 生成した画像をPDFに追加
-                    const imgData = canvas.toDataURL('image/png');
-                    doc.addImage(
-                        imgData,
-                        'PNG',
-                        x,
-                        y + photoHeight - 20,
-                        photoWidth,
-                        20
-                    );
-
-                    // ページ番号の追加
+                    // ページ番号
                     const pageNum = Math.floor(i / photosPerPage) + 1;
                     const totalPages = Math.ceil(photos.length / photosPerPage);
                     doc.setFontSize(8);
@@ -257,13 +256,12 @@
                     );
 
                 } catch (error) {
-                    console.error('Error processing image:', error);
+                    console.error('Error adding image:', error);
                 }
             }
 
-            // PDFを保存
             try {
-                doc.save(`写真台帳_${new Date().toISOString().slice(0,10)}.pdf`);
+                doc.save(`photo-report_${new Date().toISOString().slice(0,10)}.pdf`);
             } catch (error) {
                 console.error('Error saving PDF:', error);
                 alert('PDFの生成中にエラーが発生しました。');
