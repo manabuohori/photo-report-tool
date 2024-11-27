@@ -6,7 +6,6 @@
     <title>写真台帳作成ツール</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @media print {
             .photo-item {
@@ -168,101 +167,106 @@
             updatePhotosGrid();
         }
 
-       function generatePDF() {
-    if (photos.length === 0) {
-        alert('写真をアップロードしてください。');
-        return;
-    }
+        function generatePDF() {
+            if (photos.length === 0) {
+                alert('写真をアップロードしてください。');
+                return;
+            }
 
-    const doc = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
-    const contentWidth = pageWidth - (margin * 2);
-    const photoWidth = (contentWidth - margin) / 2;
-    const photoHeight = (pageHeight - (margin * 4)) / 3;
-    const photosPerPage = 6;
+            // ロマジ変換用の辞書
+            const japaneseToRomaji = {
+                // 設備の種類
+                '自動火災報知設備': 'Jido Kasai Hochi Setsubi',
+                '消火器': 'Shoukaki',
+                '避難器具': 'Hinan Kigu',
+                '誘導灯': 'Yudoto',
+                '非常放送設備': 'Hijou Housou Setsubi',
+                // 状態
+                '施工前': 'Before Construction',
+                '施工後': 'After Construction',
+                '不良箇所': 'Defective Part',
+                '是正完了': 'Correction Completed',
+                '点検中': 'Under Inspection',
+                '交換前': 'Before Replacement',
+                '交換後': 'After Replacement'
+            };
 
-    // 設備名と状態の変換辞書
-    const translate = {
-        '自動火災報知設備': 'Jido Kasai Hochi Setsubi',
-        '消火器': 'Shoukaki',
-        '避難器具': 'Hinan Kigu',
-        '誘導灯': 'Yudoto',
-        '非常放送設備': 'Hijou Housou Setsubi',
-        '施工前': 'Before Construction',
-        '施工後': 'After Construction',
-        '不良箇所': 'Defective Part',
-        '是正完了': 'Correction Completed',
-        '点検中': 'Under Inspection',
-        '交換前': 'Before Replacement',
-        '交換後': 'After Replacement'
-    };
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 15;
+            const contentWidth = pageWidth - (margin * 2);
+            const photoWidth = (contentWidth - margin) / 2;
+            const photoHeight = (pageHeight - (margin * 4)) / 3;
+            const photosPerPage = 6;
 
-    for (let i = 0; i < photos.length; i++) {
-        if (i > 0 && i % photosPerPage === 0) {
-            doc.addPage();
+            for (let i = 0; i < photos.length; i++) {
+                if (i > 0 && i % photosPerPage === 0) {
+                    doc.addPage();
+                }
+
+                const pageIndex = i % photosPerPage;
+                const col = pageIndex % 2;
+                const row = Math.floor(pageIndex / 2);
+
+                const x = margin + (col * (photoWidth + margin));
+                const y = margin + (row * (photoHeight + 5));
+
+                try {
+                    // 画像の追加
+                    doc.addImage(
+                        photos[i].url,
+                        'JPEG',
+                        x,
+                        y,
+                        photoWidth,
+                        photoHeight - 20,
+                        null,
+                        'FAST'
+                    );
+
+                    // テキスト情報の追加
+                    doc.setFontSize(7);
+                    const textY = y + photoHeight - 18;
+                    
+                    // 設備名はローマ字変換
+                    doc.text(`Equipment: ${japaneseToRomaji[photos[i].equipment] || photos[i].equipment || '-'}`, x, textY);
+                    
+                    // 場所は数字のみ抽出
+                    let location = photos[i].location || '-';
+                    location = location.replace(/[^0-9]/g, '');
+                    doc.text(`Location: ${location}`, x, textY + 4);
+                    
+                    // 状態は英語に変換
+                    doc.text(`Status: ${japaneseToRomaji[photos[i].status] || photos[i].status || '-'}`, x, textY + 8);
+                    
+                    // 補足説明は半角英数字のみ
+                    let description = photos[i].description || '-';
+                    description = description.replace(/[^A-Za-z0-9\s\-\.]/g, '');
+                    doc.text(`Note: ${description}`, x, textY + 12);
+
+                    // ページ番号
+                    const pageNum = Math.floor(i / photosPerPage) + 1;
+                    const totalPages = Math.ceil(photos.length / photosPerPage);
+                    doc.setFontSize(8);
+                    doc.text(
+                        `${pageNum} / ${totalPages}`,
+                        pageWidth - margin - 15,
+                        pageHeight - margin
+                    );
+
+                } catch (error) {
+                    console.error('Error adding image:', error);
+                }
+            }
+
+            try {
+                doc.save(`photo-report_${new Date().toISOString().slice(0,10)}.pdf`);
+            } catch (error) {
+                console.error('Error saving PDF:', error);
+                alert('PDFの生成中にエラーが発生しました。');
+            }
         }
-
-        const pageIndex = i % photosPerPage;
-        const col = pageIndex % 2;
-        const row = Math.floor(pageIndex / 2);
-
-        const x = margin + (col * (photoWidth + margin));
-        const y = margin + (row * (photoHeight + 5));
-
-        try {
-            // 画像の追加
-            doc.addImage(
-                photos[i].url,
-                'JPEG',
-                x,
-                y,
-                photoWidth,
-                photoHeight - 20,
-                null,
-                'FAST'
-            );
-
-        // PDFでのテキスト表示部分を修正
-doc.setFontSize(7);
-const textY = y + photoHeight - 18;
-// 設備名（変換辞書を使用）
-doc.text(Equipment: ${translate[photos[i].equipment] || '-'}, x, textY);
-// 場所（階数-号室の形式）
-let location = photos[i].location || '-';
-location = location.replace(/[^0-9]+/g, '-');
-location = location.replace(/^([0-9]+)-/, '$1F-');
-doc.text(Location: ${location}, x, textY + 4);
-// 状態（変換辞書を使用）
-doc.text(Status: ${translate[photos[i].status] || '-'}, x, textY + 8);
-// 備考欄（英数字のみ残す）
-let description = photos[i].description || '-';
-description = description.replace(/[^A-Za-z0-9,.-# ]/g, '');
-doc.text(Note: ${description}, x, textY + 12);
-
-            // ページ番号
-            const pageNum = Math.floor(i / photosPerPage) + 1;
-            const totalPages = Math.ceil(photos.length / photosPerPage);
-            doc.setFontSize(8);
-            doc.text(
-                `${pageNum} / ${totalPages}`,
-                pageWidth - margin - 15,
-                pageHeight - margin
-            );
-
-        } catch (error) {
-            console.error('Error adding image:', error);
-        }
-    }
-
-    try {
-        doc.save(`photo-report_${new Date().toISOString().slice(0,10)}.pdf`);
-    } catch (error) {
-        console.error('Error saving PDF:', error);
-        alert('PDFの生成中にエラーが発生しました。');
-    }
-}
     </script>
 </body>
 </html>
