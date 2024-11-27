@@ -6,6 +6,8 @@
     <title>写真台帳作成ツール</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@0.0.4/dist/fontkit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-font@1.0.7/fonts/GenShinGothic-Normal.min.js"></script>
     <style>
         @media print {
             .photo-item {
@@ -173,25 +175,11 @@
                 return;
             }
 
-            // ロマジ変換用の辞書
-            const japaneseToRomaji = {
-                // 設備の種類
-                '自動火災報知設備': 'Jido Kasai Hochi Setsubi',
-                '消火器': 'Shoukaki',
-                '避難器具': 'Hinan Kigu',
-                '誘導灯': 'Yudoto',
-                '非常放送設備': 'Hijou Housou Setsubi',
-                // 状態
-                '施工前': 'Before Construction',
-                '施工後': 'After Construction',
-                '不良箇所': 'Defective Part',
-                '是正完了': 'Correction Completed',
-                '点検中': 'Under Inspection',
-                '交換前': 'Before Replacement',
-                '交換後': 'After Replacement'
-            };
-
             const doc = new jsPDF('p', 'mm', 'a4');
+            // 日本語フォントの設定
+            doc.addFont('GenShinGothic-Normal', 'GenShinGothic', 'normal');
+            doc.setFont('GenShinGothic');
+
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
             const margin = 15;
@@ -229,31 +217,12 @@
                     doc.setFontSize(7);
                     const textY = y + photoHeight - 18;
                     
-                   // 設備名はローマ字変換
-doc.text(`Equipment: ${japaneseToRomaji[photos[i].equipment] || photos[i].equipment || '-'}`, x, textY);
+                    // 日本語で出力
+                    doc.text(`設備: ${photos[i].equipment || '-'}`, x, textY);
+                    doc.text(`場所: ${photos[i].location || '-'}`, x, textY + 4);
+                    doc.text(`状態: ${photos[i].status || '-'}`, x, textY + 8);
+                    doc.text(`備考: ${photos[i].description || '-'}`, x, textY + 12);
 
-// 場所を階数-号室形式に変換
-let location = photos[i].location || '-';
-let formattedLocation = location;
-// 数字を抽出して階数と号室を分離
-const numbers = location.match(/\d+/g);
-if (numbers && numbers.length > 0) {
-    // 最初の数字を階数として扱う
-    const floor = numbers[0];
-    // 2番目の数字があれば号室として扱う
-    const room = numbers[1] || '';
-    formattedLocation = room ? `${floor}F-${room}` : `${floor}F`;
-}
-doc.text(`Location: ${formattedLocation}`, x, textY + 4);
-
-// 状態は英語に変換
-doc.text(`Status: ${japaneseToRomaji[photos[i].status] || photos[i].status || '-'}`, x, textY + 8);
-
-// 補足説明は特定のフォーマットを維持
-let description = photos[i].description || '-';
-// 型式番号などの技術情報を保持
-const technicalInfo = description.replace(/[^A-Za-z0-9\s\-\.\/]/g, '');
-doc.text(`Note: ${technicalInfo}`, x, textY + 12);
                     // ページ番号
                     const pageNum = Math.floor(i / photosPerPage) + 1;
                     const totalPages = Math.ceil(photos.length / photosPerPage);
@@ -270,7 +239,7 @@ doc.text(`Note: ${technicalInfo}`, x, textY + 12);
             }
 
             try {
-                doc.save(`photo-report_${new Date().toISOString().slice(0,10)}.pdf`);
+                doc.save(`写真台帳_${new Date().toISOString().slice(0,10)}.pdf`);
             } catch (error) {
                 console.error('Error saving PDF:', error);
                 alert('PDFの生成中にエラーが発生しました。');
