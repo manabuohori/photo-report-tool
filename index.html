@@ -198,33 +198,64 @@
        }
 
        function createHTMLContent() {
-           return `
-           <!DOCTYPE html>
-           <html>
-           <head>
-               <meta charset="UTF-8">
-               <style>
-                   body { font-family: sans-serif; }
-                   .photo-item { page-break-inside: avoid; margin-bottom: 30px; }
-                   .info { margin-top: 10px; }
-                   img { max-width: 100%; height: auto; }
-               </style>
-           </head>
-           <body>
-               ${photos.map((photo, index) => `
-                   <div class="photo-item">
-                       <img src="${photo.url}">
-                       <div class="info">
-                           <p>設備：${photo.equipment || '-'}</p>
-                           <p>場所：${photo.location || '-'}</p>
-                           <p>状態：${photo.status || '-'}</p>
-                           <p>備考：${photo.description || '-'}</p>
-                       </div>
-                   </div>
-               `).join('')}
-           </body>
-           </html>`;
-       }
-   </script>
-</body>
-</html>
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body { 
+                font-family: sans-serif;
+                max-width: 210mm; /* A4幅 */
+                margin: 0 auto;
+                padding: 10mm; /* 余白 */
+            }
+            .page {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10mm;
+            }
+            .photo-item { 
+                page-break-inside: avoid;
+                margin-bottom: 10mm;
+            }
+            .info { 
+                margin-top: 5mm;
+                font-size: 10pt;
+            }
+            img { 
+                width: 85mm; /* A4の半分幅から余白を引いた値 */
+                height: 60mm; /* 適度な高さ */
+                object-fit: contain;
+            }
+            @media print {
+                .page { page-break-after: always; }
+            }
+        </style>
+    </head>
+    <body>
+        ${chunk(photos, 6).map(pagePhotos => `
+            <div class="page">
+                ${pagePhotos.map((photo, index) => `
+                    <div class="photo-item">
+                        <img src="${photo.url}">
+                        <div class="info">
+                            <p>設備：${photo.equipment || '-'}</p>
+                            <p>場所：${photo.location || '-'}</p>
+                            <p>状態：${photo.status || '-'}</p>
+                            <p>備考：${photo.description || '-'}</p>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `).join('')}
+    </body>
+    </html>`;
+}
+
+// 配列を指定サイズのチャンクに分割するヘルパー関数
+function chunk(array, size) {
+    return Array.from({ length: Math.ceil(array.length / size) }, 
+        (_, index) => array.slice(index * size, index * size + size)
+    );
+}
