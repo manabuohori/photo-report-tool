@@ -196,93 +196,71 @@
            return location;
        }
 
-       function generatePDF() {
-           if (photos.length === 0) {
-               alert('写真をアップロードしてください。');
-               return;
-           }
+     async function generatePDF() {
+    if (photos.length === 0) {
+        alert('写真をアップロードしてください。');
+        return;
+    }
 
-           const doc = new jsPDF('p', 'mm', 'a4');
-           const pageWidth = doc.internal.pageSize.getWidth();
-           const pageHeight = doc.internal.pageSize.getHeight();
-           const margin = 15;
-           const contentWidth = pageWidth - (margin * 2);
-           const photoWidth = (contentWidth - margin) / 2;
-           const photoHeight = (pageHeight - (margin * 4)) / 3;
-           const photosPerPage = 6;
+    const apiKey = 'sk_ec608172b3914a4c6dba13278a52c70c223ab63e';
+    
+    try {
+        const response = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Basic ' + btoa('api:' + apiKey),
+                'Content-type': 'application/json'
+            },
+            body: JSON.stringify({
+                source: createHTMLContent(),
+                landscape: false,
+                use_print: false,
+                format: 'A4'
+            })
+        });
 
-           for (let i = 0; i < photos.length; i++) {
-               if (i > 0 && i % photosPerPage === 0) {
-                   doc.addPage();
-               }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `写真台帳_${new Date().toISOString().slice(0,10)}.pdf`;
+        a.click();
+    } catch (error) {
+        console.error('Error:', error);
+        alert('PDF生成に失敗しました');
+    }
+}
 
-               const pageIndex = i % photosPerPage;
-               const col = pageIndex % 2;
-               const row = Math.floor(pageIndex / 2);
-
-               const x = margin + (col * (photoWidth + margin));
-               const y = margin + (row * (photoHeight + 5));
-
-               try {
-                   // 写真を追加
-                   doc.addImage(
-                       photos[i].url,
-                       'JPEG',
-                       x,
-                       y,
-                       photoWidth,
-                       photoHeight - 25,
-                       null,
-                       'FAST'
-                   );
-
-                   // 英語表記
-                   doc.setFontSize(7);
-                   let textY = y + photoHeight - 23;
-                   
-                   const equipment = translations.equipment[photos[i].equipment] || '-';
-                   const location = formatLocation(photos[i].location || '-');
-                   const status = translations.status[photos[i].status] || '-';
-                   const description = photos[i].description || '-';
-
-                   doc.text(`Equipment: ${equipment}`, x, textY);
-                   doc.text(`Location: ${location}`, x, textY + 3);
-                   doc.text(`Status: ${status}`, x, textY + 6);
-                   doc.text(`Note: ${description}`, x, textY + 9);
-
-                   // 区切り線
-                   doc.setDrawColor(200, 200, 200);
-                   doc.line(x, textY + 11, x + photoWidth, textY + 11);
-
-                   // 日本語訳（数値のみ表示）
-                   textY += 13;
-                   doc.text(`設備：${photos[i].equipment || '-'}`, x, textY);
-                   doc.text(`場所：${photos[i].location || '-'}`, x, textY + 3);
-                   doc.text(`状態：${photos[i].status || '-'}`, x, textY + 6);
-                   doc.text(`備考：${photos[i].description || '-'}`, x, textY + 9);
-
-                   // ページ番号
-                   const pageNum = Math.floor(i / photosPerPage) + 1;
-                   const totalPages = Math.ceil(photos.length / photosPerPage);
-                   doc.setFontSize(8);
-                   doc.text(
-                       `${pageNum} / ${totalPages}`,
-                       pageWidth - margin - 15,
-                       pageHeight - margin
-                   );
-
-               } catch (error) {
-                   console.error('Error processing image:', error);
-               }
-           }
-
-           try {
-               doc.save(`写真台帳_${new Date().toISOString().slice(0,10)}.pdf`);
-           } catch (error) {
-               console.error('Error saving PDF:', error);
-               alert('PDFの生成中にエラーが発生しました。');
-           }
-       }
-   </script>
-</body>
-</html>
+function createHTMLContent() {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body { font-family: "Hiragino Kaku Gothic Pro", "Yu Gothic", sans-serif; }
+            .photo-item { page-break-inside: avoid; margin-bottom: 30px; }
+            .info { margin-top: 10px; }
+            img { max-width: 100%; height: auto; }
+        </style>
+    </head>
+    <body>
+        ${photos.map((photo, index) => `
+            <div class="photo-item">
+                <img src="${photo.url}">
+                <div class="info">
+                    <p>Equipment: ${translations.equipment[photo.equipment] || '-'}</p>
+                    <p>Location: ${formatLocation(photo.location) || '-'}</p>
+                    <p>Status: ${translations.status[photo.status] || '-'}</p>
+                    <p>Note: ${photo.description || '-'}</p>
+                    <hr style="margin: 10px 0; border-top: 1px solid #ccc;">
+                    <p>設備：${photo.equipment || '-'}</p>
+                    <p>場所：${photo.location || '-'}</p>
+                    <p>状態：${photo.status || '-'}</p>
+                    <p>備考：${photo.description || '-'}</p>
+                </div>
+            </div>
+        `).join('')}
+    </body>
+    </html>`;
+}
