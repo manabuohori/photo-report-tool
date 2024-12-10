@@ -221,23 +221,12 @@
             flex-direction: column;
             align-items: center;
         }
-        /* 左列のテキスト */
-        .photo-item:nth-child(odd) .info { 
+        .info { 
             margin-top: 1mm;
             font-size: 8pt;
             line-height: 1.2;
             width: 100%;
-            padding-left: 10mm;
-            padding-right: 5mm;
-        }
-        /* 右列のテキスト */
-        .photo-item:nth-child(even) .info { 
-            margin-top: 1mm;
-            font-size: 8pt;
-            line-height: 1.2;
-            width: 100%;
-            padding-left: 5mm;
-            padding-right: 10mm;
+            transform: translateX(20mm); /* テキストを右に20mm移動 */
         }
         /* 基本の写真スタイル */
         .photo-item img {
@@ -270,7 +259,6 @@
     </style>
 </head>
 <body>
-   
                ${chunk(photos, 6).map(pagePhotos => `
                    <div class="page">
                        ${pagePhotos.map(photo => `
