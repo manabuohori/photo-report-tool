@@ -229,11 +229,11 @@
         }
         /* 左列のテキスト */
         .photo-item:nth-child(odd) .info {
-            transform: translateX(+10mm); /* 左に移動 */
+            transform: translateX(5mm);
         }
         /* 右列のテキスト */
         .photo-item:nth-child(even) .info {
-            transform: translateX(+5mm); /* 左に移動 */
+            transform: translateX(10mm);
         }
         /* 基本の写真スタイル */
         .photo-item img {
@@ -242,13 +242,12 @@
             object-fit: contain;
             padding: 0;
         }
-        /* 上段の写真 */
-        .photo-item:nth-child(1) img, .photo-item:nth-child(2) img {
+        /* 各ページの上段の写真（1,2枚目、7,8枚目、13,14枚目...） */
+        .photo-item:nth-child(6n+1) img, .photo-item:nth-child(6n+2) img {
             margin: 10mm 10mm 3mm 10mm;
         }
-        /* 中段と下段の写真 */
-        .photo-item:nth-child(3) img, .photo-item:nth-child(4) img,
-        .photo-item:nth-child(5) img, .photo-item:nth-child(6) img {
+        /* 各ページの中段・下段の写真（その他すべて） */
+        .photo-item:not(:nth-child(6n+1)):not(:nth-child(6n+2)) img {
             margin: 3mm 10mm 3mm 10mm;
         }
         /* 左列の写真 */
