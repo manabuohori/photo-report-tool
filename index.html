@@ -214,7 +214,6 @@
             gap: 10mm;
             page-break-after: always
         }
-        /* 写真アイテムのコンテナ */
         .photo-item { 
             position: relative;
             margin-bottom: 2mm;
@@ -222,15 +221,20 @@
             display: block;
             width: 100%;
         }
-        /* テキスト情報 */
         .info { 
             margin-top: 1mm;
             font-size: 8pt;
             line-height: 1.2;
-            width: calc(100% - 20mm);
+            width: calc(100% - 15mm); /* 20mmから15mmに変更 */
+        }
+        /* 左列のテキスト */
+        .photo-item:nth-child(odd) .info {
             margin-left: 10mm;
         }
-        /* 写真の基本スタイル */
+        /* 右列のテキスト */
+        .photo-item:nth-child(even) .info {
+            margin-left: 5mm;
+        }
         .photo-item img {
             display: block;
             width: calc(100% - 15mm);
@@ -264,24 +268,20 @@
     </style>
 </head>
 <body>
-               ${chunk(photos, 6).map(pagePhotos => `
-                   <div class="page">
-                       ${pagePhotos.map(photo => `
-                           <div class="photo-item">
-                               <img src="${photo.url}">
-                               <div class="info">
-                                   <p>設備：${photo.equipment || '-'}</p>
-                                   <p>場所：${photo.location || '-'}</p>
-                                   <p>状態：${photo.status || '-'}</p>
-                                   <p>備考：${photo.description || '-'}</p>
-                               </div>
-                           </div>
-                       `).join('')}
-                   </div>
-               `).join('')}
-           </body>
-           </html>`;
-       }
-   </script>
+    ${chunk(photos, 6).map(pagePhotos => `
+        <div class="page">
+            ${pagePhotos.map(photo => `
+                <div class="photo-item">
+                    <img src="${photo.url}">
+                    <div class="info">
+                        <p>設備：${photo.equipment || '-'}</p>
+                        <p>場所：${photo.location || '-'}</p>
+                        <p>状態：${photo.status || '-'}</p>
+                        <p>備考：${photo.description || '-'}</p>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `).join('')}
 </body>
-</html>
+</html>`;
