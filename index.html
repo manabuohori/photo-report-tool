@@ -216,10 +216,10 @@
         }
         /* 写真アイテムのコンテナ */
         .photo-item { 
-            position: relative; /* 位置決めの基準点 */
+            position: relative;
             margin-bottom: 2mm;
-            padding: 0; /* パディングをリセット */
-            display: block; /* flexboxを使用しない */
+            padding: 0;
+            display: block;
             width: 100%;
         }
         /* テキスト情報 */
@@ -228,15 +228,14 @@
             font-size: 8pt;
             line-height: 1.2;
             width: calc(100% - 20mm);
-            margin-left: 10mm; /* 固定の左マージン */
+            margin-left: 10mm;
         }
         /* 写真の基本スタイル */
         .photo-item img {
-            display: block; /* ブロック要素として配置 */
+            display: block;
             width: calc(100% - 15mm);
             height: 55mm;
             object-fit: contain;
-            margin-left: 10mm; /* 左マージンを統一 */
         }
         /* 上段の写真 */
         .photo-item:nth-child(6n+1) img, .photo-item:nth-child(6n+2) img {
@@ -250,13 +249,14 @@
         }
         /* 左列の写真 */
         .photo-item:nth-child(odd) img {
+            margin-left: 10mm;
             margin-right: 5mm;
         }
         /* 右列の写真 */
         .photo-item:nth-child(even) img {
             margin-left: 5mm;
+            margin-right: 10mm;
         }
-        /* テキスト段落 */
         p {
             margin: 0 0 1mm 0;
             padding: 0;
